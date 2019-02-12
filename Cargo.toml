@@ -6,11 +6,13 @@ version = "0.1.0"
 authors = ["Ellie <hi@ellie.moe>"]
 
 [dependencies]
-amethyst = { path = "../amethyst", version = "0.8.0" }
-amethyst_xr_models = { path = "../amethyst_xr_models" }
+amethyst = { path = "../amethystxr", version = "0.10.0" }
+amethyst_gltf = { path = "../amethystxr/amethyst_gltf", version = "0.5.0" }
+#amethyst_xr_models = { path = "../amethyst_xr_models" }
 openvr = "0.5"
 openvr_sys = "2"
 log = "0.4"
+serde = "*"
 
 [features]
 nightly = [
@@ -18,14 +20,14 @@ nightly = [
 ]
 
 [[example]]
-name = "openvr_example"
+name = "openvr"
 path = "example/main.rs"
 
-[patch.crates-io]
-gfx = { path = "../gfx/src/render" }
-gfx_core = { path = "../gfx/src/core"}
-gfx_device_gl = { path = "../gfx/src/backend/gl" }
-gfx_window_glutin = { path = "../gfx/src/window/glutin" }
+#[patch.crates-io]
+#gfx = { path = "../gfx/src/render" }
+#gfx_core = { path = "../gfx/src/core"}
+#gfx_device_gl = { path = "../gfx/src/backend/gl" }
+#gfx_window_glutin = { path = "../gfx/src/window/glutin" }
 
 [profile.dev.overrides."*"]
 opt-level = 3

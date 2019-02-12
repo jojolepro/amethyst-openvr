@@ -7,7 +7,7 @@ use amethyst::renderer::{
 };
 use amethyst::xr::XREvent;
 
-use amethyst_xr_models::XRModelEnabled;
+//use amethyst_xr_models::XRModelEnabled;
 
 #[derive(Default)]
 pub struct TrackerSystem {
@@ -42,7 +42,7 @@ impl<'a> System<'a> for TrackerSystem {
             match event {
                 XREvent::TrackerAdded(tracker) => {
                     if tracker.capabilities().is_camera {
-                        updater.insert(active_camera.entity, tracker.clone());
+                        updater.insert(active_camera.entity.unwrap(), tracker.clone());
                     } else {
                         let mut entity =
                             updater.create_entity(&*entities).with(Transform::default());
@@ -64,7 +64,8 @@ impl<'a> System<'a> for TrackerSystem {
 
                             entity = entity.with(mesh).with(material);
                         } else {
-                            entity = entity.with(XRModelEnabled);
+                            //TODO
+                            //entity = entity.with(XRModelEnabled);
                         }
 
                         entity.with(tracker).build();

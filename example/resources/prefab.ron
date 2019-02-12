@@ -1,0 +1,18 @@
+#![enable(implicit_some)]
+Prefab (
+    entities: [
+        (
+            data: (
+                light: (ambient_color: ((0.1, 0.1, 0.1, 1.0))),
+            ),
+        ),
+        (
+            data: (
+                gltf: File("mesh/puffy.gltf", GltfSceneFormat, (
+                    load_animations: true,
+                    flip_v_coord: true,
+                )),
+            ),
+        ),
+    ],
+)

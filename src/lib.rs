@@ -9,8 +9,8 @@ pub use openvr::ApplicationType;
 use std::ffi::CStr;
 use std::result::Result as StdResult;
 
-use amethyst::core::cgmath::{Matrix4, Quaternion, Vector3};
-use amethyst::{Error, Result};
+use amethyst::core::nalgebra::{Matrix4, UnitQuaternion, Vector3, Quaternion};
+use amethyst::error::Error;
 
 use amethyst::xr::{
     TrackerCapabilities, TrackerComponentModelInfo, TrackerComponentTextureData,
@@ -39,12 +39,29 @@ impl OpenVR {
         unsafe { openvr_sys::VR_IsHmdPresent() }
     }
 
-    pub fn init(application_type: ApplicationType) -> Result<OpenVR> {
+    fn get_tracker_capabilities(&mut self, index: u32) -> TrackerCapabilities {
+        let render_model_components = if let Ok(name) = self.system.string_tracked_device_property(
+            index,
+            openvr_sys::ETrackedDeviceProperty_Prop_RenderModelName_String,
+        ) {
+            std::cmp::max(self.render_models.component_count(&name), 1)
+        } else {
+            0
+        };
+        let is_camera = self.system.tracked_device_class(index) == TrackedDeviceClass::HMD;
+
+        TrackerCapabilities {
+            render_model_components,
+            is_camera,
+        }
+    }
+
+    pub fn init(application_type: ApplicationType) -> Result<OpenVR, Error> {
         // TODO: Handle unsafe
-        let context = unsafe { init(application_type).map_err(|_| Error::Application)? };
-        let system = context.system().map_err(|_| Error::Application)?;
-        let compositor = context.compositor().map_err(|_| Error::Application)?;
-        let render_models = context.render_models().map_err(|_| Error::Application)?;
+        let context = unsafe { init(application_type).map_err(|_| Error::from_string("Error creating OpenVR context"))? };
+        let system = context.system().map_err(|_| Error::from_string("Error creating OpenVR system"))?;
+        let compositor = context.compositor().map_err(|_| Error::from_string("Error creating OpenVR compositor"))?;
+        let render_models = context.render_models().map_err(|_| Error::from_string("Error creating OpenVR render models"))?;
 
         Ok(OpenVR {
             _context: context,
@@ -154,22 +171,6 @@ impl OpenVR {
         }
     }
 
-    fn get_tracker_capabilities(&self, index: u32) -> TrackerCapabilities {
-        let render_model_components = if let Ok(name) = self.system.string_tracked_device_property(
-            index,
-            openvr_sys::ETrackedDeviceProperty_Prop_RenderModelName_String,
-        ) {
-            std::cmp::max(self.render_models.component_count(&name), 1)
-        } else {
-            0
-        };
-        let is_camera = self.system.tracked_device_class(index) == TrackedDeviceClass::HMD;
-
-        TrackerCapabilities {
-            render_model_components,
-            is_camera,
-        }
-    }
 }
 
 impl XRBackend for OpenVR {
@@ -283,7 +284,7 @@ impl XRBackend for OpenVR {
             let av = pose.angular_velocity();
 
             let position = Vector3::new(p[0], p[1], p[2]);
-            let rotation = Quaternion::new(q[0], q[1], q[2], q[3]);
+            let rotation = UnitQuaternion::from_quaternion(Quaternion::new(q[0], q[1], q[2], q[3]));
             let velocity = Vector3::new(v[0], v[1], v[2]);
             let angular_velocity = Vector3::new(av[0], av[1], av[2]);
 
@@ -296,7 +297,7 @@ impl XRBackend for OpenVR {
             }
         } else {
             let vec_zero = Vector3::new(0.0, 0.0, 0.0);
-            let rot_zero = Quaternion::new(0.0, 0.0, 0.0, 0.0);
+            let rot_zero = UnitQuaternion::identity();
 
             TrackerPositionData {
                 position: vec_zero,
@@ -333,15 +334,14 @@ impl XRBackend for OpenVR {
     }
 
     fn get_gl_target_info(&mut self, near: f32, far: f32) -> Vec<XRTargetInfo> {
-        use amethyst::core::cgmath::SquareMatrix;
 
         let left_trans = self.system.eye_to_head_transform(Eye::Left);
         let right_trans = self.system.eye_to_head_transform(Eye::Right);
         let left_trans = array_to_matrix(extend_matrix_array(left_trans))
-            .invert()
+            .try_inverse()
             .unwrap();
         let right_trans = array_to_matrix(extend_matrix_array(right_trans))
-            .invert()
+            .try_inverse()
             .unwrap();
 
         let left_proj = array_to_matrix(self.system.projection_matrix(Eye::Left, near, far));
@@ -410,7 +410,7 @@ fn convert_vertices(vertices: &[openvr::render_models::Vertex]) -> Vec<TrackerCo
         .map(|vert| {
             let normal_vector = Vector3::from(vert.normal);
             let up = Vector3::from([0.0, 1.0, 0.0]);
-            let tangent = normal_vector.cross(up).cross(normal_vector).into();
+            let tangent = normal_vector.cross(&up).cross(&normal_vector).into();
             let [u, v] = vert.texture_coord;
             TrackerComponentVertex {
                 position: vert.position,
